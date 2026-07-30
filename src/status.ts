@@ -118,9 +118,13 @@ export function smallCaps(str: string): string {
 const TILE_STATES = 4;
 
 /** The bar as a run of custom-emoji shortcodes, e.g. ":flighty-bar-start-4::flighty-bar-middle-2:…". */
-function progressTiles(progress: number, tiles: number): string {
+function progressTiles(progress: number, tiles: number, arrived: boolean): string {
   const totalUnits = tiles * TILE_STATES;
-  const filled = Math.max(0, Math.min(totalUnits, Math.round(progress * totalUnits)));
+  // Round down, and never fill the last unit until the flight has actually
+  // landed — a completely full bar means "arrived", not "almost there".
+  const filled = arrived
+    ? totalUnits
+    : Math.max(0, Math.min(totalUnits - 1, Math.floor(progress * totalUnits)));
   let out = "";
   for (let i = 0; i < tiles; i++) {
     const level = Math.max(0, Math.min(TILE_STATES, filled - i * TILE_STATES));
@@ -139,11 +143,12 @@ function progressBar(
   progress: number,
   exitSide: ExitSide,
   tiles: number,
+  arrived: boolean,
 ): string {
   const dest = smallCaps(destinationAirport);
   const destLabel =
     exitSide === "left" ? `•${dest}` : exitSide === "right" ? `${dest}•` : dest;
-  return `${smallCaps(originAirport)}  ${progressTiles(progress, tiles)}  ${destLabel}`;
+  return `${smallCaps(originAirport)}  ${progressTiles(progress, tiles, arrived)}  ${destLabel}`;
 }
 
 /** Format a duration in ms as a compact "3m" / "1h 20m" string. */
@@ -211,6 +216,7 @@ export function renderFlightOooMarkdown(p: FlightOooParams): string {
     p.progress,
     p.exitSide ?? null,
     p.barLength ?? DEFAULT_TILES,
+    p.arrived ?? false,
   );
   const timing = p.arrived ? "Arrived" : `Lands in ${p.timeRemaining}`;
   return `${bar} • ${timing}\n\n${detailLine(p)}`;
