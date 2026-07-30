@@ -88,8 +88,15 @@ export async function buildFlightPlan(
   }
 
   params.timeRemaining = formatTimeRemaining(landing.getTime() - at.getTime());
-  params.arrived =
-    at.getTime() >= landing.getTime() || info?.rawStatus.toLowerCase() === "arrived";
+
+  const status = info?.rawStatus.toLowerCase();
+  const pastLanding = at.getTime() >= landing.getTime();
+  // Genuinely landed: the API says so, or (with no live data) we're past the ETA.
+  const landed = status === "arrived" || (status === undefined && pastLanding);
+  params.arrived = landed;
+  // Past the estimated landing but the API still has it airborne (e.g. EnRoute)
+  // -> "Landing soon" rather than "Arrived", and the bar stays short of full.
+  params.landingSoon = !landed && pastLanding && status !== undefined;
 
   const bufferMs = config.behavior.postArrivalBufferMinutes * 60_000;
   const expiresAt = Math.max(scheduledArrival.getTime(), landing.getTime()) + bufferMs;

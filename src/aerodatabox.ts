@@ -65,7 +65,8 @@ function deriveStatusLabel(rawStatus: string, delayMinutes: number): string {
   const s = rawStatus.toLowerCase();
   if (s.includes("cancel")) return "Cancelled";
   if (s === "diverted") return "Diverted";
-  if (s === "arrived") return "Landed";
+  if (s === "arrived") return "Arrived";
+  if (s === "enroute") return "In flight";
   if (delayMinutes >= 15) return `Delayed ${formatDelay(delayMinutes)}`;
   return "On time";
 }

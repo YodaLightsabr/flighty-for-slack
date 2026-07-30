@@ -197,6 +197,8 @@ export interface FlightOooParams {
   lastUpdated?: string;
   /** True once the flight has landed — shows "Arrived" instead of a countdown. */
   arrived?: boolean;
+  /** True when past the estimated landing time but not yet marked arrived. */
+  landingSoon?: boolean;
 }
 
 const DEFAULT_TILES = 5;
@@ -218,7 +220,11 @@ export function renderFlightOooMarkdown(p: FlightOooParams): string {
     p.barLength ?? DEFAULT_TILES,
     p.arrived ?? false,
   );
-  const timing = p.arrived ? "Arrived" : `Lands in ${p.timeRemaining}`;
+  const timing = p.arrived
+    ? "Landed"
+    : p.landingSoon
+      ? "Landing soon"
+      : `Lands in ${p.timeRemaining}`;
   return `${bar} • ${timing}\n\n${detailLine(p)}`;
 }
 
