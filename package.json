@@ -1,0 +1,30 @@
+{
+  "name": "flighty-for-slack",
+  "version": "0.1.0",
+  "description": "Reads flights from your Google Calendar and updates your Slack status while you're in the air.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "auth": "tsx src/auth.ts",
+    "check": "tsx src/cron.ts",
+    "check:dry": "tsx src/cron.ts --dry-run",
+    "scheduler": "tsx src/scheduler.ts",
+    "preview": "tsx src/preview.ts",
+    "preview:clear": "tsx src/preview.ts --clear",
+    "build": "tsc",
+    "start": "node dist/cron.js"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.8.0",
+    "dotenv": "^16.4.7",
+    "googleapis": "^144.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@vercel/node": "^5.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
