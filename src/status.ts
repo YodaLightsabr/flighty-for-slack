@@ -25,7 +25,8 @@ function truncate(text: string): string {
 
 type RichTextElement =
   | { type: "text"; text: string; style?: Record<string, boolean> }
-  | { type: "link"; url: string; text: string; style?: Record<string, boolean> };
+  | { type: "link"; url: string; text: string; style?: Record<string, boolean> }
+  | { type: "emoji"; name: string };
 
 // Inline-markdown rules, tried in priority order against the remaining string.
 // (`ooo_message` accepts rich_text blocks only — not Block Kit `markdown`
@@ -33,6 +34,8 @@ type RichTextElement =
 const MD_RULES: Array<{ re: RegExp; make: (m: RegExpMatchArray) => RichTextElement }> = [
   { re: /^`([^`]+)`/, make: (m) => ({ type: "text", text: m[1], style: { code: true } }) },
   { re: /^\[([^\]]+)\]\(([^)\s]+)\)/, make: (m) => ({ type: "link", url: m[2], text: m[1] }) },
+  // :emoji_name: -> a rich_text emoji element (needed for custom emoji).
+  { re: /^:([a-z0-9_+-]+):/, make: (m) => ({ type: "emoji", name: m[1] }) },
   { re: /^\*\*\*([^*]+)\*\*\*/, make: (m) => ({ type: "text", text: m[1], style: { bold: true, italic: true } }) },
   { re: /^\*\*([^*]+)\*\*/, make: (m) => ({ type: "text", text: m[1], style: { bold: true } }) },
   { re: /^__([^_]+)__/, make: (m) => ({ type: "text", text: m[1], style: { bold: true } }) },
@@ -110,29 +113,37 @@ export function smallCaps(str: string): string {
     .join("");
 }
 
-/** The moving bar itself: filled track, arrow head, then padded remainder. */
-function progressUtil(length: number, progress: number): string {
-  const filledLen = Math.max(0, Math.min(length, Math.round(progress * length)));
-  const filled = "━";
-  const blank = "X";
-  const output = `${filled.repeat(filledLen)}➞${blank.repeat(length - filledLen)}`;
-  return output.replaceAll("X", "     "); // each empty unit = 5 spaces wide
+// Each tile is a 5-state custom emoji (:flighty-bar-<pos>-<X>:) where X is 0..4:
+// 0 empty, 4 full. With 6 tiles that's 24 sub-units of granularity.
+const TILE_STATES = 4;
+
+/** The bar as a run of custom-emoji shortcodes, e.g. ":flighty-bar-start-4::flighty-bar-middle-2:…". */
+function progressTiles(progress: number, tiles: number): string {
+  const totalUnits = tiles * TILE_STATES;
+  const filled = Math.max(0, Math.min(totalUnits, Math.round(progress * totalUnits)));
+  let out = "";
+  for (let i = 0; i < tiles; i++) {
+    const level = Math.max(0, Math.min(TILE_STATES, filled - i * TILE_STATES));
+    const position = i === 0 ? "start" : i === tiles - 1 ? "end" : "middle";
+    out += `:flighty-bar-${position}-${level}:`;
+  }
+  return out;
 }
 
 type ExitSide = "left" | "right" | null;
 
-/** ORIGIN  ━━━➞      DEST — with the exit-side bullet hugging the destination. */
+/** ORIGIN :tiles: DEST — with the exit-side bullet hugging the destination. */
 function progressBar(
   originAirport: string,
   destinationAirport: string,
   progress: number,
   exitSide: ExitSide,
-  length: number,
+  tiles: number,
 ): string {
   const dest = smallCaps(destinationAirport);
   const destLabel =
     exitSide === "left" ? `•${dest}` : exitSide === "right" ? `${dest}•` : dest;
-  return `${smallCaps(originAirport)}   ${progressUtil(length, progress)}   ${destLabel}`;
+  return `${smallCaps(originAirport)} ${progressTiles(progress, tiles)} ${destLabel}`;
 }
 
 /** Format a duration in ms as a compact "3m" / "1h 20m" string. */
@@ -173,7 +184,7 @@ export interface FlightOooParams {
   trackingLink: string;
   /** Which side the doors open on arrival; places a bullet by the destination. */
   exitSide?: ExitSide;
-  /** Number of segments in the bar. */
+  /** Number of emoji tiles in the progress bar. */
   barLength?: number;
   /** Live status label, e.g. "On time" / "Delayed 25m". */
   statusLabel?: string;
@@ -181,7 +192,7 @@ export interface FlightOooParams {
   lastUpdated?: string;
 }
 
-const DEFAULT_BAR_LENGTH = 6;
+const DEFAULT_TILES = 6;
 
 /** Shared second line: **status** • [Track](link) • Last updated 10:05 PDT */
 function detailLine(p: FlightOooParams): string {
@@ -197,7 +208,7 @@ export function renderFlightOooMarkdown(p: FlightOooParams): string {
     p.destinationAirport,
     p.progress,
     p.exitSide ?? null,
-    p.barLength ?? DEFAULT_BAR_LENGTH,
+    p.barLength ?? DEFAULT_TILES,
   );
   return `${bar} • Lands in ${p.timeRemaining}\n\n${detailLine(p)}`;
 }

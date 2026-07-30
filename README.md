@@ -148,25 +148,32 @@ the **Cron Jobs** tab.
 The status uses a per-airline emoji `:flighty-<airline>:` (e.g. `:flighty-ua:`)
 and has two phases, both expiring at the flight's scheduled arrival:
 
-**Pre-flight** (within `PREFLIGHT_HOURS` before departure) — pill counts down to
+The pill is always the flight number (`UA 5440`); the OOO message changes by
+phase, both built from live AeroDataBox data.
+
+**Pre-flight** (within `PREFLIGHT_HOURS` before departure) — route + countdown to
 takeoff, so people see you're about to be offline:
 
 ```
-Flight to SNA departs in 2h 50m
+UA 5440
 
 SFO ➞ SNA • Departs in 2h 50m
 On time • Track • Last updated 10:48 PDT
 ```
 
-**In-flight** (between departure and arrival) — pill is the flight number, OOO
-shows a live progress bar built from AeroDataBox data:
+**In-flight** (between departure and arrival) — a progress bar of 6 custom emoji
+tiles (`:flighty-bar-start-X:` / `:flighty-bar-middle-X:` / `:flighty-bar-end-X:`,
+where `X` is 0–4) plus a countdown to landing:
 
 ```
 UA 5440
 
-SFO   ━━━━➞         SNA • 36m
+SFO [▓▓▓▓▒░] SNA • Lands in 36m
 On time • Track • Last updated 14:50 PDT
 ```
+
+The emoji tiles must be uploaded to your Slack workspace
+(`flighty-bar-start-0`…`4`, `flighty-bar-middle-0`…`4`, `flighty-bar-end-0`…`4`).
 
 `status_text_canonical` is set to `"Out of office"` so Slack renders the OOO
 message; the visible pill stays the flight status.
