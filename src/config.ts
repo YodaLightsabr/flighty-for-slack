@@ -54,6 +54,10 @@ export const config = {
     get preflightHours() {
       return Number(optional("PREFLIGHT_HOURS", "3"));
     },
+    // How many minutes after arrival to keep the status up (the "Arrived" buffer).
+    get postArrivalBufferMinutes() {
+      return Number(optional("POST_ARRIVAL_BUFFER_MINUTES", "15"));
+    },
     get pollIntervalSeconds() {
       return Number(optional("POLL_INTERVAL_SECONDS", "300"));
     },

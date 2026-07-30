@@ -41,16 +41,23 @@ function progressBetween(start: Date, end: Date, at: Date): number {
   return duration > 0 ? clamp01((at.getTime() - start.getTime()) / duration) : 0;
 }
 
+export interface FlightPlan {
+  params: FlightOooParams;
+  /** When Slack should auto-clear the status (unix seconds). */
+  expirationUnix: number;
+}
+
 /**
- * Build the OOO params for a flight: start from what the calendar gives us,
- * enrich with live AeroDataBox data (airport codes, real times, status label)
- * when available, then apply any caller override.
+ * Build everything needed to set the status for a flight: the OOO params
+ * (calendar baseline enriched with live AeroDataBox data, then any caller
+ * override) plus the expiration, which sits `postArrivalBufferMinutes` past the
+ * later of scheduled arrival and actual landing.
  */
-export async function buildOooParams(
+export async function buildFlightPlan(
   flight: Flight,
   at: Date,
   override?: Partial<FlightOooParams>,
-): Promise<FlightOooParams> {
+): Promise<FlightPlan> {
   // Calendar-only baseline.
   const params: FlightOooParams = {
     originAirport: "",
@@ -62,21 +69,35 @@ export async function buildOooParams(
     lastUpdated: formatClockTime(at),
   };
 
+  // The calendar only knows scheduled arrival; live data may know the actual
+  // (or predicted) landing time.
+  let scheduledArrival = flight.end;
+  let landing = flight.end;
+
   // Live enrichment.
   const info = await getFlightInfo(`${flight.airline}${flight.number}`, flight.date);
   if (info) {
     if (info.originAirport) params.originAirport = info.originAirport;
     if (info.destinationAirport) params.destinationAirport = info.destinationAirport;
     params.statusLabel = info.statusLabel;
+    if (info.arrivalScheduledUtc) scheduledArrival = info.arrivalScheduledUtc;
+    if (info.arrivalUtc) landing = info.arrivalUtc;
     if (info.departureUtc && info.arrivalUtc) {
       params.progress = progressBetween(info.departureUtc, info.arrivalUtc, at);
     }
-    if (info.arrivalUtc) {
-      params.timeRemaining = formatTimeRemaining(info.arrivalUtc.getTime() - at.getTime());
-    }
   }
 
-  return { ...params, ...(override ?? {}) };
+  params.timeRemaining = formatTimeRemaining(landing.getTime() - at.getTime());
+  params.arrived =
+    at.getTime() >= landing.getTime() || info?.rawStatus.toLowerCase() === "arrived";
+
+  const bufferMs = config.behavior.postArrivalBufferMinutes * 60_000;
+  const expiresAt = Math.max(scheduledArrival.getTime(), landing.getTime()) + bufferMs;
+
+  return {
+    params: { ...params, ...(override ?? {}) },
+    expirationUnix: Math.floor(expiresAt / 1000),
+  };
 }
 
 /**
@@ -99,13 +120,18 @@ export async function checkAndUpdate(
   log(`Found ${flights.length} flight event(s) in the window.`);
 
   const preflightWindowMs = config.behavior.preflightHours * 3600_000;
-  const active = currentFlight(flights, now, preflightWindowMs);
+  const postBufferMs = config.behavior.postArrivalBufferMinutes * 60_000;
+  const active = currentFlight(flights, now, preflightWindowMs, postBufferMs);
   const current = await getStatus();
   const weOwnCurrent = isFlightEmoji(current.emoji);
 
   if (active) {
     const { flight, phase } = active;
-    const oooParams = await buildOooParams(flight, now, options.flightData?.(flight));
+    const { params: oooParams, expirationUnix } = await buildFlightPlan(
+      flight,
+      now,
+      options.flightData?.(flight),
+    );
 
     const formatted =
       phase === "inflight"
@@ -116,12 +142,11 @@ export async function checkAndUpdate(
             formatTimeRemaining(flight.start.getTime() - now.getTime()),
           );
     const { text: desiredText, emoji: desiredEmoji, canonical, oooMessage } = formatted;
-    const desiredExpiration = Math.floor(flight.end.getTime() / 1000);
 
     const unchanged =
       current.text === desiredText &&
       current.emoji === desiredEmoji &&
-      current.expiration === desiredExpiration &&
+      current.expiration === expirationUnix &&
       current.canonical === canonical &&
       current.oooMessage === oooMessage;
 
@@ -131,13 +156,13 @@ export async function checkAndUpdate(
       return { action: "noop", reason };
     }
 
-    const reason = `${phase} flight "${flight.summary}" — setting status ${desiredEmoji} until ${flight.end.toISOString()}.`;
+    const reason = `${phase} flight "${flight.summary}" — setting status ${desiredEmoji} until ${new Date(expirationUnix * 1000).toISOString()}.`;
     log(reason);
     if (!dryRun) {
       await setStatus({
         text: desiredText,
         emoji: desiredEmoji,
-        expiration: desiredExpiration,
+        expiration: expirationUnix,
         canonical,
         oooMessage,
       });
@@ -145,8 +170,17 @@ export async function checkAndUpdate(
     return { action: "set", reason };
   }
 
-  // No active flight.
+  // No active flight. Leave a status we set in place until it expires on its
+  // own (e.g. a delayed arrival's buffer) rather than clearing it early.
   if (weOwnCurrent) {
+    const notYetExpired =
+      current.expiration > 0 && current.expiration * 1000 > now.getTime();
+    if (notYetExpired) {
+      const reason =
+        "No active flight — leaving our status until it expires on its own.";
+      log(reason);
+      return { action: "noop", reason };
+    }
     const reason = "No active flight — clearing the flight status we set.";
     log(reason);
     if (!dryRun) await clearStatus();

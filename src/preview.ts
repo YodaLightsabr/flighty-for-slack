@@ -9,7 +9,7 @@
 import { now } from "./clock.js";
 import { fetchEvents } from "./google.js";
 import { parseFlights } from "./flights.js";
-import { buildOooParams } from "./check.js";
+import { buildFlightPlan } from "./check.js";
 import {
   formatFlightStatus,
   formatPreflightStatus,
@@ -36,7 +36,7 @@ async function main() {
   const flight =
     flights.find((f) => f.start.toDateString() === at.toDateString()) ?? flights[0];
 
-  const oooParams = await buildOooParams(flight, at);
+  const { params: oooParams, expirationUnix } = await buildFlightPlan(flight, at);
   const preflight = at < flight.start;
   const departsIn = formatTimeRemaining(flight.start.getTime() - at.getTime());
 
@@ -47,9 +47,7 @@ async function main() {
     ? renderPreflightOooMarkdown(oooParams, departsIn)
     : renderFlightOooMarkdown(oooParams);
 
-  // Expire at the real arrival time so a forgotten preview cleans itself up.
-  const expiration = Math.floor(flight.end.getTime() / 1000);
-  await setStatus({ text, emoji, expiration, canonical, oooMessage });
+  await setStatus({ text, emoji, expiration: expirationUnix, canonical, oooMessage });
 
   console.log(`Set preview status (${preflight ? "pre-flight" : "in-flight"}, as of ${at.toISOString()}) from:`, flight.summary);
   console.log(`  emoji:     ${emoji}`);
@@ -57,7 +55,7 @@ async function main() {
   console.log(`  canonical: ${canonical}`);
   console.log("  ooo (rendered):");
   console.log(rendered.split("\n").map((l) => "    | " + l).join("\n"));
-  console.log(`  clears at: ${flight.end.toISOString()} (or run: npm run preview:clear)`);
+  console.log(`  clears at: ${new Date(expirationUnix * 1000).toISOString()} (or run: npm run preview:clear)`);
 }
 
 main().catch((e) => {

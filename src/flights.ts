@@ -76,7 +76,8 @@ export interface CurrentFlight {
 /**
  * Return the flight we should show a status for at `now`, and which phase it's
  * in:
- *   - "inflight"  — between scheduled departure and arrival.
+ *   - "inflight"  — from scheduled departure until arrival + `postBufferMs`
+ *                   (the buffer keeps the "Arrived" status up after landing).
  *   - "preflight" — within `preflightWindowMs` before departure.
  * If flights overlap, the one departing soonest wins.
  */
@@ -84,12 +85,13 @@ export function currentFlight(
   flights: Flight[],
   now: Date,
   preflightWindowMs: number,
+  postBufferMs = 0,
 ): CurrentFlight | null {
   const t = now.getTime();
   for (const flight of flights) {
     const start = flight.start.getTime();
     const end = flight.end.getTime();
-    if (t >= start && t < end) return { flight, phase: "inflight" };
+    if (t >= start && t < end + postBufferMs) return { flight, phase: "inflight" };
     if (t >= start - preflightWindowMs && t < start) {
       return { flight, phase: "preflight" };
     }

@@ -190,6 +190,8 @@ export interface FlightOooParams {
   statusLabel?: string;
   /** Pre-formatted "last updated" clock time, e.g. "10:05 PDT". */
   lastUpdated?: string;
+  /** True once the flight has landed — shows "Arrived" instead of a countdown. */
+  arrived?: boolean;
 }
 
 const DEFAULT_TILES = 5;
@@ -210,7 +212,8 @@ export function renderFlightOooMarkdown(p: FlightOooParams): string {
     p.exitSide ?? null,
     p.barLength ?? DEFAULT_TILES,
   );
-  return `${bar} • Lands in ${p.timeRemaining}\n\n${detailLine(p)}`;
+  const timing = p.arrived ? "Arrived" : `Lands in ${p.timeRemaining}`;
+  return `${bar} • ${timing}\n\n${detailLine(p)}`;
 }
 
 /** Pre-flight OOO message as markdown: route + countdown to departure. */

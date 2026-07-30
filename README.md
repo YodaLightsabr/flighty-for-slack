@@ -143,6 +143,7 @@ the **Cron Jobs** tab.
 | `GOOGLE_CALENDAR_ID`     | `primary`      | Which calendar to read.                             |
 | `RAPIDAPI_KEY`           | _(none)_       | AeroDataBox key for airport codes + live status.    |
 | `PREFLIGHT_HOURS`        | `3`            | Hours before departure to show the pre-flight status.|
+| `POST_ARRIVAL_BUFFER_MINUTES` | `15`      | Minutes to keep the "Arrived" status up after landing.|
 | `POLL_INTERVAL_SECONDS`  | `300`          | Scheduler-only check interval.                      |
 
 The status uses a per-airline emoji `:flighty-<airline>:` (e.g. `:flighty-ua:`)
@@ -174,6 +175,10 @@ On time • Track • Last updated 14:50 PDT
 
 The emoji tiles must be uploaded to your Slack workspace
 (`flighty-bar-start-0`…`4`, `flighty-bar-middle-0`…`4`, `flighty-bar-end-0`…`4`).
+
+Once the flight lands, `Lands in Xm` becomes `Arrived`, and the status lingers
+for `POST_ARRIVAL_BUFFER_MINUTES` (expiring at the later of scheduled arrival and
+actual landing, plus the buffer) before clearing.
 
 `status_text_canonical` is set to `"Out of office"` so Slack renders the OOO
 message; the visible pill stays the flight status.
