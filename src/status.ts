@@ -114,7 +114,7 @@ export function smallCaps(str: string): string {
 }
 
 // Each tile is a 5-state custom emoji (:flighty-bar-<pos>-<X>:) where X is 0..4:
-// 0 empty, 4 full. With 6 tiles that's 24 sub-units of granularity.
+// 0 empty, 4 full. With 5 tiles that's 20 sub-units of granularity.
 const TILE_STATES = 4;
 
 /** The bar as a run of custom-emoji shortcodes, e.g. ":flighty-bar-start-4::flighty-bar-middle-2:…". */
@@ -143,7 +143,7 @@ function progressBar(
   const dest = smallCaps(destinationAirport);
   const destLabel =
     exitSide === "left" ? `•${dest}` : exitSide === "right" ? `${dest}•` : dest;
-  return `${smallCaps(originAirport)} ${progressTiles(progress, tiles)} ${destLabel}`;
+  return `${smallCaps(originAirport)}  ${progressTiles(progress, tiles)}  ${destLabel}`;
 }
 
 /** Format a duration in ms as a compact "3m" / "1h 20m" string. */
@@ -192,7 +192,7 @@ export interface FlightOooParams {
   lastUpdated?: string;
 }
 
-const DEFAULT_TILES = 6;
+const DEFAULT_TILES = 5;
 
 /** Shared second line: **status** • [Track](link) • Last updated 10:05 PDT */
 function detailLine(p: FlightOooParams): string {

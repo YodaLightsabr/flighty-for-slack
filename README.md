@@ -161,14 +161,14 @@ SFO ➞ SNA • Departs in 2h 50m
 On time • Track • Last updated 10:48 PDT
 ```
 
-**In-flight** (between departure and arrival) — a progress bar of 6 custom emoji
+**In-flight** (between departure and arrival) — a progress bar of 5 custom emoji
 tiles (`:flighty-bar-start-X:` / `:flighty-bar-middle-X:` / `:flighty-bar-end-X:`,
 where `X` is 0–4) plus a countdown to landing:
 
 ```
 UA 5440
 
-SFO [▓▓▓▓▒░] SNA • Lands in 36m
+SFO  [▓▓▓▒░]  SNA • Lands in 36m
 On time • Track • Last updated 14:50 PDT
 ```
 
