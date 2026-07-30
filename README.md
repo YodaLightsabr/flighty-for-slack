@@ -208,5 +208,6 @@ NOW=2026-07-30T21:50:00Z npm run preview     # mid-flight
 NOW=2026-07-30T22:24:00Z npm run check:dry   # 2 min before landing
 ```
 
+
 Freezing reshapes every view at once: the calendar window, the progress bar,
 and the time-remaining.
